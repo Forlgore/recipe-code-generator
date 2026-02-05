@@ -242,8 +242,13 @@
     const outputEl = q('#json-output');
 
     const renderOutput = obj => {
-      try { outputEl.textContent = JSON.stringify(obj, null, 2); }
-      catch (err) { outputEl.textContent = `// Error stringifying JSON: ${String(err)}`; }
+      try {
+        const pretty = JSON.stringify(obj, null, 2);
+        const indented = pretty.split('\n').map(line => `    ${line}`).join('\n');
+        outputEl.textContent = indented;
+      } catch (err) {
+        outputEl.textContent = `// Error stringifying JSON: ${String(err)}`;
+      }
     };
 
     const handleGenerate = () => renderOutput(buildPayload());
@@ -261,7 +266,9 @@
         const original = btn.textContent;
         btn.textContent = 'Copied';
         setTimeout(() => (btn.textContent = original), 1200);
-      } catch { alert('Copy failed. Please select and copy manually.'); }
+      } catch {
+        alert('Copy failed. Please select and copy manually.');
+      }
     });
 
     q('#clear').addEventListener('click', () => {
