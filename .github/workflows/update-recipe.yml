@@ -27,9 +27,9 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.generator }}
         run: |
-          TARGET_REPO_OWNER="For"
+          TARGET_REPO_OWNER="Forlgore"
           TARGET_REPO_NAME="recipe-frontend"
-          TARGET_FILE_PATH="recipe.js"
+          TARGET_FILE_PATH="/data/recipe.js"
 
           # Fetch the current content of the target file
           FILE_URL="https://api.github.com/repos/$TARGET_REPO_OWNER/$TARGET_REPO_NAME/contents/$TARGET_FILE_PATH"
@@ -43,6 +43,8 @@ jobs:
 
           # Append the generated JSON to the current content
           NEW_CONTENT="$CURRENT_CONTENT
+
+          # Generated json data
 
           // New recipe generated on $(date)
           $GENERATED_JSON"
