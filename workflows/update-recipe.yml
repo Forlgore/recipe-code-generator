@@ -31,7 +31,7 @@ jobs:
 
       - name: Update recipe.js in target repository
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.generator }}
           GENERATED_JSON: ${{ env.GENERATED_JSON }}
         run: |
           # Replace these variables with your actual values
