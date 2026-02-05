@@ -25,7 +25,7 @@ jobs:
 
       - name: Update recipe.js in target repository
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.generator }}
         run: |
           TARGET_REPO_OWNER="For"
           TARGET_REPO_NAME="recipe-frontend"
