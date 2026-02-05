@@ -19,39 +19,41 @@ jobs:
       - name: Generate JSON
         id: generate_json
         run: |
-          GENERATED_JSON=$(node generate_recipe_json.js)
-          # Escape newlines and quotes for shell
-          GENERATED_JSON="${GENERATED_JSON//$'\n'/\\n}"
-          GENERATED_JSON="${GENERATED_JSON//$'"'/'\"'}"
-          echo "GENERATED_JSON=$GENERATED_JSON" >> $GITHUB_ENV
+          # Generate JSON and save it to a file
+          node generate_recipe_json.js > generated_recipe.json
+          echo "JSON_FILE=generated_recipe.json" >> $GITHUB_ENV
 
       - name: Update recipe.js in target repository
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          TARGET_REPO_OWNER="For"  # Your GitHub username or organization name
-          TARGET_REPO_NAME="recipe-frontend"  # Your target repository name
+          TARGET_REPO_OWNER="For"
+          TARGET_REPO_NAME="recipe-frontend"
           TARGET_FILE_PATH="recipe.js"
 
+          # Fetch the current content of the target file
           FILE_URL="https://api.github.com/repos/$TARGET_REPO_OWNER/$TARGET_REPO_NAME/contents/$TARGET_FILE_PATH"
           FILE_DATA=$(curl -s -X GET -H "Authorization: token $GITHUB_TOKEN" $FILE_URL)
 
           SHA=$(echo "$FILE_DATA" | jq -r '.sha')
           CURRENT_CONTENT=$(echo "$FILE_DATA" | jq -r '.content' | base64 -d)
 
-          # Use the generated JSON directly without additional escaping
+          # Read the generated JSON file
+          GENERATED_JSON=$(cat ${{ env.JSON_FILE }})
+
+          # Append the generated JSON to the current content
           NEW_CONTENT="$CURRENT_CONTENT
 
           // New recipe generated on $(date)
-          ${{ env.GENERATED_JSON }}"
-          NEW_CONTENT="${NEW_CONTENT//$'\n'/\\n}"
+          $GENERATED_JSON"
 
+          # Update the file
           UPDATE_URL="https://api.github.com/repos/$TARGET_REPO_OWNER/$TARGET_REPO_NAME/contents/$TARGET_FILE_PATH"
           curl -s -X PUT -H "Authorization: token $GITHUB_TOKEN" \
             -H "Content-Type: application/json" \
             $UPDATE_URL \
             -d "{
                 \"message\": \"Update recipe.js with new recipe\",
-                \"content\": \"$(echo -e "$NEW_CONTENT" | base64 -w 0)\",
+                \"content\": \"$(printf '%s' "$NEW_CONTENT" | base64 -w 0)\",
                 \"sha\": \"$SHA\"
               }"
