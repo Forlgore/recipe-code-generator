@@ -1,1 +1,48 @@
 
+name: Update Recipe File
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  update-recipe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Update recipe.js in target repository
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Replace these variables with your actual values
+          TARGET_REPO_OWNER="target-repo-owner"  # e.g., "Forlgore"
+          TARGET_REPO_NAME="target-repo-name"    # e.g., "recipe-database"
+          TARGET_FILE_PATH="recipe.js"           # Path to the file you want to update
+
+          # Fetch the current content of the target file
+          FILE_URL="https://api.github.com/repos/$TARGET_REPO_OWNER/$TARGET_REPO_NAME/contents/$TARGET_FILE_PATH"
+          FILE_DATA=$(curl -s -X GET -H "Authorization: token $GITHUB_TOKEN" $FILE_URL)
+
+          # Extract the current content and sha
+          SHA=$(echo $FILE_DATA | jq -r '.sha')
+          CURRENT_CONTENT=$(echo $FILE_DATA | jq -r '.content' | base64 -d)
+
+          # Generate the new content (e.g., append new JSON)
+          # Replace this with your logic to generate the new content
+          NEW_CONTENT="$CURRENT_CONTENT
+
+          // New recipe generated on $(date)
+          // Your generated JSON here"
+
+          # Update the file
+          UPDATE_URL="https://api.github.com/repos/$TARGET_REPO_OWNER/$TARGET_REPO_NAME/contents/$TARGET_FILE_PATH"
+          curl -s -X PUT -H "Authorization: token $GITHUB_TOKEN" \
+            -H "Content-Type: application/json" \
+            $UPDATE_URL \
+            -d "{
+                \"message\": \"Update recipe.js with new recipe\",
+                \"content\": \"$(echo "$NEW_CONTENT" | base64 -w 0)\",
+                \"sha\": \"$SHA\"
+              }"
