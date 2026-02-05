@@ -1,6 +1,4 @@
 // generate_recipe_json.js
-// This script replicates the logic of your HTML/JS code to generate the JSON
-
 function slugify(s) {
   return s
     .toLowerCase()
@@ -32,7 +30,7 @@ function htmlEscape(str) {
     .replace(/'/g, '&#39;');
 }
 
-// Example data (replace with your actual data or pass as arguments)
+// Example data
 const recipe = {
   id: 1,
   name: "Creamy Lemon Dill Chicken & Rice Casserole",
@@ -47,7 +45,6 @@ const recipe = {
   ]
 };
 
-// Build the payload (same logic as your HTML/JS code)
 const ingredients = recipe.ingredients;
 const instructions = recipe.instructions;
 
@@ -60,7 +57,7 @@ const ingredientAtoms = Array.from(atomSet).sort();
 
 const payload = {
   id: recipe.id,
-  name: htmlEscape(recipe.name),
+  name: recipe.name, // Do not escape HTML here if you want plain JSON
   servings: recipe.servings,
   tags: recipe.tags,
   components: [
