@@ -7,6 +7,7 @@ on:
 jobs:
   update-recipe:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -19,43 +20,90 @@ jobs:
       - name: Generate JSON
         id: generate_json
         run: |
+          set -euo pipefail
           # Generate JSON and save it to a file
           node generate_recipe_json.js > generated_recipe.json
-          echo "JSON_FILE=generated_recipe.json" >> $GITHUB_ENV
+          # Expose the file path to later steps
+          echo "JSON_FILE=generated_recipe.json" >> "$GITHUB_ENV"
 
       - name: Update recipe.js in target repository
+        # IMPORTANT: secrets.generator must be a Personal Access Token (fine-grained)
+        # with Repository -> Contents: Read and write permission on the target repo.
         env:
-          GITHUB_TOKEN: ${{ secrets.generator }}
+          GH_TOKEN: ${{ secrets.generator }}
         run: |
+          set -euo pipefail
+
+          # Ensure jq is available (defensive: runner images can change over time)
+          sudo apt-get update -y
+          sudo apt-get install -y jq
+
           TARGET_REPO_OWNER="Forlgore"
           TARGET_REPO_NAME="recipe-frontend"
-          TARGET_FILE_PATH="/data/recipe.js"
+          TARGET_FILE_PATH="data/recipe.js"   # repo-relative path (no leading slash)
+          TARGET_BRANCH="main"
 
-          # Fetch the current content of the target file
-          FILE_URL="https://api.github.com/repos/$TARGET_REPO_OWNER/$TARGET_REPO_NAME/contents/$TARGET_FILE_PATH"
-          FILE_DATA=$(curl -s -X GET -H "Authorization: token $GITHUB_TOKEN" $FILE_URL)
+          # Attempt to fetch the current file content on the target branch
+          FILE_URL="https://api.github.com/repos/$TARGET_REPO_OWNER/$TARGET_REPO_NAME/contents/$TARGET_FILE_PATH?ref=$TARGET_BRANCH"
 
-          SHA=$(echo "$FILE_DATA" | jq -r '.sha')
-          CURRENT_CONTENT=$(echo "$FILE_DATA" | jq -r '.content' | base64 -d)
+          HTTP_STATUS=$(
+            curl -sS -w "%{http_code}" -o response.json \
+              -H "Authorization: Bearer $GH_TOKEN" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "$FILE_URL"
+          )
 
-          # Read the generated JSON file
-          GENERATED_JSON=$(cat ${{ env.JSON_FILE }})
+          SHA=""
+          CURRENT_CONTENT=""
 
-          # Append the generated JSON to the current content
-          NEW_CONTENT="$CURRENT_CONTENT
+          if [ "$HTTP_STATUS" = "200" ]; then
+            # Existing file: capture its blob SHA and decode Base64 content
+            SHA=$(jq -r '.sha' < response.json)
+            jq -r '.content' < response.json | tr -d '\n' | base64 -d > current.txt
+            CURRENT_CONTENT="$(cat current.txt)"
+          elif [ "$HTTP_STATUS" = "404" ]; then
+            # File does not exist yet
+            :
+          else
+            echo "Unexpected HTTP status while reading target file: $HTTP_STATUS"
+            cat response.json || true
+            exit 1
+          fi
 
-          # Generated json data
+          # Read the JSON produced earlier in this job
+          GENERATED_JSON="$(cat "$JSON_FILE")"
 
-          // New recipe generated on $(date)
-          $GENERATED_JSON"
+          # Build the new JS content. This appends a valid JS comment header + raw JSON.
+          # If your frontend expects an exported symbol instead, replace this block
+          # with the exact JS module format you need.
+          {
+            printf "%s\n\n" "$CURRENT_CONTENT"
+            echo "/* Generated JSON data */"
+            echo "// New recipe generated on $(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+            echo "$GENERATED_JSON"
+          } > new_recipe.js
 
-          # Update the file
+          # Base64-encode the new file content for the PUT call (required by the API)
+          NEW_CONTENT_B64="$(base64 -w 0 < new_recipe.js)"
+
           UPDATE_URL="https://api.github.com/repos/$TARGET_REPO_OWNER/$TARGET_REPO_NAME/contents/$TARGET_FILE_PATH"
-          curl -s -X PUT -H "Authorization: token $GITHUB_TOKEN" \
+
+          # Build the request body; include "sha" only when updating an existing file
+          BODY="$(jq -n \
+            --arg message "Update recipe.js with new recipe" \
+            --arg content "$NEW_CONTENT_B64" \
+            --arg branch "$TARGET_BRANCH" \
+            --arg sha "$SHA" \
+            'if $sha == "" then
+                {message:$message, content:$content, branch:$branch}
+             else
+                {message:$message, content:$content, sha:$sha, branch:$branch}
+             end')"
+
+          # Create or update the file
+          curl -sS -X PUT \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
             -H "Content-Type: application/json" \
-            $UPDATE_URL \
-            -d "{
-                \"message\": \"Update recipe.js with new recipe\",
-                \"content\": \"$(printf '%s' "$NEW_CONTENT" | base64 -w 0)\",
-                \"sha\": \"$SHA\"
-              }"
+            -d "$BODY" \
+            "$UPDATE_URL" | tee update_response.json
