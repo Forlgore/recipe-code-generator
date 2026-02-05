@@ -1,4 +1,3 @@
-
 name: Update Recipe File
 
 on:
@@ -12,9 +11,28 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Generate JSON
+        id: generate_json
+        run: |
+          # Run the Node.js script to generate the JSON
+          GENERATED_JSON=$(node generate_recipe_json.js)
+
+          # Escape newlines and special characters for use in the shell
+          GENERATED_JSON="${GENERATED_JSON//$'\n'/'\\n'}"
+          GENERATED_JSON="${GENERATED_JSON//$'"'/'\"'}"
+
+          # Export the JSON for use in the next step
+          echo "GENERATED_JSON=$GENERATED_JSON" >> $GITHUB_ENV
+
       - name: Update recipe.js in target repository
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GENERATED_JSON: ${{ env.GENERATED_JSON }}
         run: |
           # Replace these variables with your actual values
           TARGET_REPO_OWNER="target-repo-owner"  # e.g., "Forlgore"
@@ -29,12 +47,11 @@ jobs:
           SHA=$(echo $FILE_DATA | jq -r '.sha')
           CURRENT_CONTENT=$(echo $FILE_DATA | jq -r '.content' | base64 -d)
 
-          # Generate the new content (e.g., append new JSON)
-          # Replace this with your logic to generate the new content
+          # Append the generated JSON to the current content
           NEW_CONTENT="$CURRENT_CONTENT
 
           // New recipe generated on $(date)
-          // Your generated JSON here"
+          $GENERATED_JSON"
 
           # Update the file
           UPDATE_URL="https://api.github.com/repos/$TARGET_REPO_OWNER/$TARGET_REPO_NAME/contents/$TARGET_FILE_PATH"
