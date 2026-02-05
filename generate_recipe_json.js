@@ -1,4 +1,3 @@
-// generate_recipe_json.js
 function slugify(s) {
   return s
     .toLowerCase()
@@ -21,21 +20,12 @@ function keyFromItem(item) {
   return slugify(s);
 }
 
-function htmlEscape(str) {
-  return (str || '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
-
 // Example data
 const recipe = {
   id: 1,
   name: "Creamy Lemon Dill Chicken & Rice Casserole",
   servings: 4,
-  tags: ["chicken", "casserole", "lemon", "dill", "oven", "rice"],
+  tags: ["savory", "casserole", "fast", "simple", "lunch", "asian"],
   ingredients: [
     { amount: "500 g", item: "chicken breast", key: keyFromItem("chicken breast"), notes: "cubed" }
   ],
@@ -57,7 +47,7 @@ const ingredientAtoms = Array.from(atomSet).sort();
 
 const payload = {
   id: recipe.id,
-  name: recipe.name, // Do not escape HTML here if you want plain JSON
+  name: recipe.name,
   servings: recipe.servings,
   tags: recipe.tags,
   components: [
