@@ -18,21 +18,6 @@ function keyFromItem(item) {
   const LEADING_DROP = ['fresh', 'uncooked', 'raw'];
   s = s.replace(new RegExp('^\\s*(' + LEADING_DROP.join('|') + ')\\b\\s*', 'i'), '');
   return slugify(s);
-}
-
-// Example data
-const recipe = {
-  id: 1,
-  name: "Creamy Lemon Dill Chicken & Rice Casserole",
-  servings: 4,
-  tags: ["savory", "casserole", "fast", "simple", "lunch", "asian"],
-  ingredients: [
-    { amount: "500 g", item: "chicken breast", key: keyFromItem("chicken breast"), notes: "cubed" }
-  ],
-  instructions: [
-    "Preheat oven to 190°C / 375°F.",
-    "In a baking dish, combine rice and chicken broth."
-  ]
 };
 
 const ingredients = recipe.ingredients;
